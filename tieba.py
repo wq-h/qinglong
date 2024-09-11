@@ -1,4 +1,8 @@
-# -*- coding: utf8 -*-
+# !/usr/bin/python3
+# -- coding: utf-8 --
+# cron: 00 08 * * *
+# const $ = new Env("贴吧签到");
+
 import os
 import time
 from requests import session

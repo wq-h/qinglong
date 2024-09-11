@@ -1,3 +1,7 @@
+# !/usr/bin/python3
+# -- coding: utf-8 --
+# cron: 05 08 * * *
+# const $ = new Env("glados 机场签到");
 import datetime
 import requests
 import os

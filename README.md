@@ -11,14 +11,16 @@
    ![image-20240302121449165](https://github.com/wq-h/pictures/blob/main/tieba_network.png?raw=true)
 # glados 机场
 引用项目: https://github.com/komori-flag/glados_automation.git
+
 我的邀请码:DU5MD-3NWHA-GP3DK-IESMU 注册地址: https://glados.space/landing/DU5MD-3NWHA-GP3DK-IESMU
+
 ## 修改后的功能：  
 1. 修改通知方式，去除只PUSHPLUS通知
 ## 青龙面板使用
 1. 抓取glados 控制台中的Cookies 值
 2. 配置变量 GLADOS_COOKIES 如果有多个账号需使用 '&' 隔开 示例：cookie&cookie&cookie
    ![image-20240302121449165](https://github.com/wq-h/pictures/blob/main/glados_network.jpg?raw=true)
-  
+
 # 拉取命令
 ```shell
 ql repo https://github.com/wq-h/qinglong.git "tieba.py|glados.py" "README.md" "sendNotify.py" "main"
