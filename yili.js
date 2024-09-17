@@ -14,7 +14,9 @@ let nickName = ''
 let yiliToken = ''
 let openId = ''
 let unionId = ''
-let YiLi_Code = ['伊利相伴中秋更添甜','终于放假啦','嫦娥奔月','无法无天','麋鹿']
+let type = '2'
+let type1 = '2'
+let YiLi_Code = ['18','石榴','八月十五','千里共婵娟','月饼香甜伊利更醇']
 let notice = ''
 !(async () => {
     if (typeof $request != "undefined") {
@@ -50,6 +52,8 @@ async function main() {
         }
         console.log(`登录成功`)
         token = login.data.token;
+        type = login.data.num1;
+        type1 = login.data.num2;
         let ticketInfo = await commonGet(`/fragment/ticket/ticket-info?openId=${openId}`)
         if (!ticketInfo.data.sign) {
             let sign = await commonGet(`/fragment/ticket/sign?openId=${openId}`)
@@ -59,7 +63,7 @@ async function main() {
             let seePage = await commonGet(`/fragment/ticket/see-page?openId=${openId}`)
             console.log(`浏览：${seePage.message}`)
         }
-        if (YiLi_Code.length) {
+    if (YiLi_Code.length) {
             let authorize = await yiLiGet(`/developer/oauth2/buyer/authorize?app_key=zdcade261b48eb4c5e`)
             if (authorize.data) {
                 for (var i = 0; i < YiLi_Code.length; i++) {
@@ -207,8 +211,8 @@ async function commonPost(url, body) {
     })
 }
 
-async function commonGet(url, type) {
-    let params = getParams(type);
+async function commonGet(url) {
+    let params = getParams();
     return new Promise(resolve => {
         const options = {
             url: `https://wx-camp-180-shuangjie-api.mscampapi.digitalyili.com${url}`,
@@ -249,15 +253,22 @@ async function commonGet(url, type) {
     })
 }
 
-function getParams(type) {
+function getParams() {
     let timestamp = Date.now();
     let uniquecode = timestamp + "&" + String(Math.floor(1e5 + 9e5 * Math.random()));
-    let signature;
-    if (type === 'aes') {
-        signature = aesEncrypt(aesEncrypt("timeStamp:"+ timestamp + "&uniqueCode:" + uniquecode + "2e@gf513g2f1Qif@ag4!sdfzxEcadfafzafoi897as8dfw8g4za78qqfd8780df8==/er78a"));
-    } else {
-        signature = Utils.md5(Utils.md5("timeStamp:"+ timestamp + "&uniqueCode:" + uniquecode + "363QQ45465465xcvdas89!safzafwa36paweoi897as8dfw8g4za78qqfd878000df8/er89b").toUpperCase()).toUpperCase();
-    }
+    var F = "timeStamp:"+ timestamp + "&uniqueCode:" + uniquecode + {
+        1: "963QQ45465465xcvdasfasdfzxEcadfafzafoi897as8dfw8g4za78qqfd878000df8/er78a",
+        2: "363QQ45465465xcvdas89!safzafwa36paweoi897as8dfw8g4za78qqfd878000df8/er89b",
+        3: "763Qi45895465xcv89as89!sa2616wa36paweoi897as8dfw8g4za78qqfd878000df8/eqr23b",
+        4: "7531Qi45891546115xcv89as819!sa26161wa36pa81g4z1a78qqfd87810001df18/eqr213b",
+        5: "3f53f1Qia4f5f91546fa115axcvfff89asf819!saff26161fwa36fpa81g4z1fa7/eqr21f3b",
+        6: "egf513gf1Qifag4f5f9f154g6fa115afxgcvffgf89gasgf8g19!saffg2g6161gfg6fpa@g1g",
+        7: "2e@gf513g2f1Qif@ag4!f5f92f215!4g6fa115afxgcvffgf89gasgf82g19!2gfwa3g62fpa2",
+        8: "6e@!gf514g2fb1Qif@!bag41f89gasbgf8b2g19!2gfwa3gb62fbpa@g1g32b9999!",
+        9: "6a@!gf514g2fb1Qif@!bag41f89gasbgf8b2g19!2gfwa3gb62fbpa@g1g32b9869!++3",
+        10: "2e@gf513g2f1Qif@ag4!sdfzxEcadfafzafoi897as8dfw8g4za78qqfd8780df8==/er78a"
+    }[type1], e = Utils.md5(F).toUpperCase();
+    let signature = 1 == type ? aesEncrypt(e) : 2 == type ? Utils.md5(e).toUpperCase() : 3 == type ? Utils.md5(aesEncrypt(F)).toUpperCase() : 4 == type ? aesEncrypt(aesEncrypt(F)) : e;
     return {"timestamp": timestamp, "uniquecode": uniquecode, "signature": signature}
 }
 
