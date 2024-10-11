@@ -421,7 +421,7 @@ def first_request(res=''):
     #print(rsurl)    
     ts_code += ss.get(rsurl).text
     content_code = soup.find_all('meta')[1].get('content')
-    with open("瑞数通杀.js") as f:
+    with open("ruishutongsha.js") as f:
         js_code_ym = f.read()
     js_code = js_code_ym.replace('content_code', content_code).replace("'ts_code'", ts_code)
     js = execjs.compile(js_code) 
