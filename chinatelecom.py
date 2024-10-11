@@ -79,7 +79,7 @@ jp = {"9":{},"12":{},"13":{},"23":{}}
 
 
 try:
-    with open('电信金豆换话费.log') as fr:
+    with open('telecom_doudou.log') as fr:
         dhjl = json.load(fr)
 except:
     dhjl = {}
@@ -276,7 +276,7 @@ def exchange(phone,s,title,aid, uid):
                         send(uid, msg)
                     if phone not in dhjl[yf][title]:
                         dhjl[yf][title] += "#"+phone
-                        with open('电信金豆换话费.log', 'w') as f:
+                        with open('telecom_doudou.log', 'w') as f:
                             json.dump(dhjl, f, ensure_ascii=False)
                             
             
