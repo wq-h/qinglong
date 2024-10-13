@@ -1,6 +1,6 @@
 # !/usr/bin/python3
 # -- coding: utf-8 --
-# cron: 55 59 09,13 * * *
+# cron: 50 59 09,13 * * *
 # const $ = new Env("电信金豆换话费");
 import requests
 import re

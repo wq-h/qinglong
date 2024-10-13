@@ -9,7 +9,7 @@ export chinaTelecomAccount="13888888888#123456"
 
 每天运行一两次
 
-cron: 33 7,19 * * *
+cron: 33 10,14 * * *
 const $ = new Env("电信营业厅");
 */
 const _0x49dfef = _0x5370a4("电信营业厅"),
