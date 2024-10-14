@@ -27,6 +27,8 @@ from http import cookiejar  # Python 2: import cookielib as cookiejar
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.ssl_ import create_urllib3_context
 
+# 取消延迟
+RandomDelay=''
 
 class BlockAll(cookiejar.CookiePolicy):
     return_ok = set_ok = domain_return_ok = path_return_ok = lambda self, *args, **kwargs: False
