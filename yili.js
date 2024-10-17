@@ -27,7 +27,7 @@ let YiLi_Code = [
     "杨小妹邀您来伊利拿礼",
     "高文香邀您来伊利拿礼",
     "孙凤萍邀您来伊利拿礼"
-];
+]
 let notice = ''
 !(async () => {
     if (typeof $request != "undefined") {
