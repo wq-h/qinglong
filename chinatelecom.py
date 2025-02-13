@@ -2,14 +2,14 @@
 新电信抢话费
 
 群里发的，未测试好，自测
-修改内容如下“
+修改内容如下"
 1.删除内置的一个手机账号
 2.修改环境变量名保持和拉菲电信金豆本环境变量一致
 3.恢复瑞数通杀.js调用地址，确实也不知道是啥。398、399行注释
 
 环境变量chinaTelecomAccount，值为：账号#密码
 
-cron: 57 9,13,23 * * *
+cron: 56 59 09,13 * * *
 const $ = new Env("新电信抢话费");
 
 """
@@ -40,11 +40,27 @@ from Crypto.Util.Padding import pad, unpad
 from aiohttp import ClientSession, TCPConnector
 from concurrent.futures import ThreadPoolExecutor
 import subprocess
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('chinatelecom.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 run_num=os.environ.get('reqNUM') or "2"
 
-MAX_RETRIES = 3
-RATE_LIMIT = 10  # 每秒请求数限制
+# 添加配置类
+class Config:
+    MAX_RETRIES = 3
+    RATE_LIMIT = 10
+    REQUEST_TIMEOUT = 30
+    BASE_URL = "https://wapact.189.cn:9001"
+    USER_AGENT = "Mozilla/5.0 (Linux; Android 13; 22081212C Build/TKQ1.220829.002) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.5112.97 Mobile Safari/537.36"
 
 class RateLimiter:
     def __init__(self, rate_limit):
@@ -427,27 +443,89 @@ async def qgNight(phone, ticket, timeDiff,isTrue):
 async def qgDay(phone, ticket,  timeDiff, isTrue):
     async with AsyncSessionManager() as s:
       pass
-async def main(timeDiff,isTRUE,hour):
-    tasks = []
-    PHONES=os.environ.get('chinaTelecomAccount')
-    phone_list = PHONES.split('\n')
-    for phoneV in phone_list:
-        value = phoneV.split('#')
-        phone, password = value[0], value[1]
-        printn(f'{get_first_three(phone)}开始登录')
-        ticket = userLoginNormal(phone,password)
-        if ticket:
-         #    hour=datetime.datetime.now().hour
-         #    hour=23
-            if hour > 15:
-                tasks.append(qgNight(phone, ticket, timeDiff, isTRUE))
-                # await asyncio.sleep(0.1)
-            else:#十点//十四点场次
-                tasks.append(qgDay(phone, ticket, timeDiff, isTRUE))
-                # await asyncio.sleep(0.1)
-        else:
-            printn(f'{phone} 登录失败')
-    await asyncio.gather(*tasks)
+
+# 修改 RequestUtil 类
+class RequestUtil:
+    def __init__(self):
+        # 在创建 ClientSession 时通过 headers 参数设置请求头
+        self.session = aiohttp.ClientSession(headers={"User-Agent": Config.USER_AGENT})
+        self.rate_limiter = RateLimiter(Config.RATE_LIMIT)
+
+    async def safe_request(self, method, url, **kwargs):
+        for attempt in range(Config.MAX_RETRIES):
+            try:
+                await self.rate_limiter.acquire()
+                async with self.session.request(method, url, timeout=Config.REQUEST_TIMEOUT, **kwargs) as response:
+                    response.raise_for_status()
+                    return await response.json()
+            except Exception as e:
+                if attempt == Config.MAX_RETRIES - 1:
+                    raise
+                await asyncio.sleep(2 ** attempt)
+
+    async def close(self):
+        if self.session and not self.session.closed:
+            await self.session.close()
+
+# 修改 main 函数，增加日志记录
+async def main(timeDiff, isTRUE, hour):
+    config = Config()
+    request_util = RequestUtil()
+    
+    try:
+        PHONES = os.environ.get('chinaTelecomAccount')
+        if not PHONES:
+            logger.error("未找到环境变量 chinaTelecomAccount")
+            raise ValueError("未找到环境变量 chinaTelecomAccount")
+            
+        phone_list = PHONES.split('\n')
+        tasks = []
+        logger.info(f"开始处理 {len(phone_list)} 个账号")
+        
+        for phoneV in phone_list:
+            try:
+                value = phoneV.split('#')
+                if len(value) != 2:
+                    logger.warning(f"账号格式错误: {phoneV}")
+                    continue
+                    
+                phone, password = value[0], value[1]
+                logger.info(f'{get_first_three(phone)} 开始登录')
+                
+                ticket = userLoginNormal(phone, password)
+                if not ticket:
+                    logger.error(f'{get_first_three(phone)} 登录失败')
+                    continue
+                    
+                logger.info(f'{get_first_three(phone)} 登录成功')
+                
+                if hour > 15:
+                    logger.info(f'{get_first_three(phone)} 加入夜间任务队列')
+                    tasks.append(qgNight(phone, ticket, timeDiff, isTRUE))
+                else:
+                    logger.info(f'{get_first_three(phone)} 加入日间任务队列')
+                    tasks.append(qgDay(phone, ticket, timeDiff, isTRUE))
+                    
+            except Exception as e:
+                logger.error(f'{get_first_three(phone)} 处理失败: {str(e)}')
+                continue
+                
+        logger.info(f"开始执行 {len(tasks)} 个任务")
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 记录任务执行结果
+        for i, result in enumerate(results, start=1):  # 从1开始计数
+            if isinstance(result, Exception):
+                logger.error(f"任务 {i} 执行失败: {str(result)}")
+            else:
+                logger.info(f"任务 {i} 执行成功")
+        
+    except Exception as e:
+        logger.error(f'主程序运行失败: {str(e)}', exc_info=True)
+    finally:
+        logger.info("正在关闭请求会话")
+        await request_util.close()
+        logger.info("程序执行完毕")
 
 if __name__ == "__main__":
     h = datetime.datetime.now().hour

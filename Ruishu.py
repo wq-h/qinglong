@@ -14,6 +14,7 @@ from Crypto.Cipher import DES3
 from Crypto.Util.Padding import pad, unpad
 from aiohttp import ClientSession, TCPConnector
 import httpx
+import logging
 
 diffValue = 2
 filename='Cache.js'
@@ -77,34 +78,49 @@ custom_client = httpx.Client(
     )
 )
 
+# 添加日志记录
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 def initCookie(getUrl='https://wapact.189.cn:9001/gateway/standQuery/detailNew/exchange'):
-    global js_code_ym, fileContent
-    cookie = ''
-    response = custom_client.post(getUrl)
-    content = response.text.split(' content="')[2].split('" r=')[0]
-    code1 = response.text.split('$_ts=window')[1].split('</script><script type="text/javascript"')[0]
-    code1Content = '$_ts=window' + code1
-    Url = response.text.split('$_ts.lcd();</script><script type="text/javascript" charset="utf-8" src="')[1].split('" r=')[0]
-    urls = getUrl.split('/')
-    rsurl = urls[0] + '//' + urls[2] + Url
-    filename = 'Cache.js'
-    if fileContent == '':
-        if not os.path.exists(filename):
-            fileRes = custom_client.get(rsurl)
-            fileContent = fileRes.text
+    try:
+        global js_code_ym, fileContent
+        response = custom_client.post(getUrl)
+        response.raise_for_status()
+        
+        # 解析响应内容
+        content = response.text.split(' content="')[2].split('" r=')[0]
+        code1 = response.text.split('$_ts=window')[1].split('</script><script type="text/javascript"')[0]
+        code1Content = '$_ts=window' + code1
+        Url = response.text.split('$_ts.lcd();</script><script type="text/javascript" charset="utf-8" src="')[1].split('" r=')[0]
+        
+        # 处理文件缓存
+        if not fileContent:
+            fileRes = custom_client.get(Url)
             if fileRes.status_code == 200:
+                fileContent = fileRes.text
                 with open(filename, 'w', encoding='utf-8') as file:
                     file.write(fileRes.text)
             else:
-                print(f"Failed to download {rsurl}. Status code: {fileRes.status_code}")
-    if response.headers['Set-Cookie']:
-        cookie = response.headers['Set-Cookie'].split(';')[0].split('=')[1]
-    runJs = js_code_ym.replace('content_code', content).replace("'ts_code'", code1Content + fileContent)
-    execjsRun = RefererCookie(runJs)
-    return {
-        'cookie': cookie,
-        'execjsRun': execjsRun
-    }
+                logger.error(f"Failed to download {Url}. Status code: {fileRes.status_code}")
+                return None
+                
+        # 处理cookies
+        cookie = response.headers.get('Set-Cookie', '').split(';')[0].split('=')[1]
+        runJs = js_code_ym.replace('content_code', content).replace("'ts_code'", code1Content + fileContent)
+        execjsRun = RefererCookie(runJs)
+        
+        return {
+            'cookie': cookie,
+            'execjsRun': execjsRun
+        }
+        
+    except Exception as e:
+        logger.error(f"初始化cookies失败: {str(e)}")
+        return None
 
 def RefererCookie(runJs):
     try:
