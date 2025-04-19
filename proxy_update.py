@@ -6,6 +6,7 @@ import hashlib
 import urllib.parse
 import os
 
+from sendNotify import send  # 添加通知发送模块
 
 # JULIANG_KEY = ''  # 填入巨量的API密钥，点击设置授权信息按钮查看，获取地址 https://www.juliangip.com/users/product/time
 # JULIANG_TRADE_NO = ''  # 填入巨量的业务编号
@@ -113,10 +114,35 @@ def main():
     ip = get_current_ip()
     print('当前ip地址：', ip)
 
-    print('更新巨量白名单结果：', update_juliang_white_list(ip, JULIANG_KEY, JULIANG_TRADE_NO))
-    print('更新星空白名单结果：', update_xk_white_list(ip, XK_APIKEY, XK_SIGN))
-    print('更新携趣白名单结果：', update_xiequ_white_list(ip, XIEQU_UID, XIEQU_UKEY))
-    print('更新优亦云白名单结果：', update_yyy_white_list(ip, YYY_UID, YYY_TOKEN))
+    res1 = update_juliang_white_list(ip, JULIANG_KEY, JULIANG_TRADE_NO)
+    res2 = update_xk_white_list(ip, XK_APIKEY, XK_SIGN)
+    res3 = update_xiequ_white_list(ip, XIEQU_UID, XIEQU_UKEY)
+    res4 = update_yyy_white_list(ip, YYY_UID, YYY_TOKEN)
+
+    print('更新巨量白名单结果：', res1)
+    print('更新星空白名单结果：', res2)
+    print('更新携趣白名单结果：', res3)
+    print('更新优亦云白名单结果：', res4)
+
+    # 判断是否有实际变更（不是 None 且不是“未变化”）
+    meaningful_results = []
+    if res1 and '未变化' not in res1:
+        meaningful_results.append(f"巨量：{res1}")
+    if res2 and '未变化' not in res2:
+        meaningful_results.append(f"星空：{res2}")
+    if res3 and '未变化' not in res3:
+        meaningful_results.append(f"携趣：{res3}")
+    if res4 and '未变化' not in res4:
+        meaningful_results.append(f"优亦云：{res4}")
+
+    if meaningful_results:
+        msg = f"""📝 当前IP地址：{ip}
+🔄 有效更新结果：
+""" + "\n".join(meaningful_results)
+        send("IP白名单更新通知", msg)
+    else:
+        print("无有效更新，无需发送通知。")
+
 
 if __name__ == "__main__":
     main()
