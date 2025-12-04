@@ -7,15 +7,15 @@
 使用说明：
 1. 环境变量配置：
    - chinaTelecomAccount: 手机号#密码#WxPusher的UID (多个账号用@或&分隔)
-   - MEXZ: 兑换策略配置，格式："0.5,5,6;1,10,3" (上午;下午)
+   - MEXZ: 兑换策略配置，格式："0.5,5;1,10" (上午;下午)
    - WXPUSHER_APP_TOKEN: 微信推送token
    - WXPUSHER_UID: 微信推送UID
    - OUTER_LOOP_COUNT: 外层循环次数，默认20
    - INNER_LOOP_COUNT: 内层循环次数，默认10
 
 2. 运行时间：
-   - 上午场: 09:30:03 - 10:10:30
-   - 下午场: 13:30:03 - 14:10:30
+   - 上午场: 10:00:00
+   - 下午场: 14:00:00
 
 3. 功能特点：
    - 多账号支持
@@ -659,7 +659,7 @@ async def dh(phone, s, title, aid, wt, uid):
         if (h == 9 and title in morning_exchanges) or (h == 13 and title in afternoon_exchanges):
             tasks.append(exchange(phone, s, title, aid, uid, amount))
             cs += 1
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(0.05)  # 减少任务创建间隔，加快速度
         else:
             print(f"[{current_time}] [时间过滤] {masked_phone} {title} 不在当前兑换时段，跳过")
             break
@@ -670,7 +670,7 @@ async def dh(phone, s, title, aid, wt, uid):
 
     # 等待目标时间
     while wt > get_network_time().timestamp():
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.01)  # 减少等待间隔，提高精度
     
     # 执行所有兑换任务
     await asyncio.gather(*tasks)
@@ -803,7 +803,7 @@ async def ks(phone, ticket, uid):
                         for afternoon_item in afternoon_exchanges:
                             if afternoon_item in item["title"]:
                                 jp["13"][afternoon_item] = item["id"]
-                    print(f"[{current_time}] [商品匹配] {masked_phone} 商品匹配完成，上午商品: {jp['9']}，下午商品: {jp['13']}")
+                    
                 else:
                     print(f"[{current_time}] [商品异常] {masked_phone} 商品列表格式异常: {query_json}")
             except Exception as e:
@@ -852,7 +852,7 @@ async def ks(phone, ticket, uid):
 
                 # 轮次间隔
                 if loop < OUTER_LOOP_COUNT - 1:
-                    await asyncio.sleep(0.01)
+                    await asyncio.sleep(0.005)  # 减少轮次间隔，加快速度
                     next_loop_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
                     print(f"[{next_loop_time}] [轮次间隔] {masked_phone} 第 {loop + 1} 轮完成，准备下一轮")
 
@@ -943,7 +943,7 @@ async def main():
 
         # 等待目标时间
         while wt > datetime.datetime.now().timestamp():
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.01)  # 提高等待精度
 
         # 执行当前批次的所有任务
         if tasks:
@@ -958,7 +958,7 @@ async def main():
         batch_end_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         print(f"[{batch_end_time}] [批次完成] 第 {batch_num}/{total_batches} 批账号处理完成")
         if batch_num < total_batches:
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)  # 批次间隔
 
 
 START_LOG = rf'''
@@ -1030,3 +1030,6 @@ if in_time_window:
     print(f"[{final_time}] [程序结束] 任务执行完成，当前在推送时间窗口内")
 else:
     print(f"[{final_time}] [程序结束] 任务执行完成，当前不在推送时间窗口内")
+
+
+
