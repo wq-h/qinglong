@@ -2,7 +2,13 @@
 // @LastEditTime: 2025-09-22
 
 /*
-中国联通 
+免责声明:
+本脚本仅供学习交流使用，使用者需自行承担使用本脚本所产生的一切后果。
+作者不对使用本脚本造成的任何损失或法律责任负责。
+请在下载后24小时内删除，不得用于商业用途。
+使用本脚本即表示您同意本免责声明。
+
+中国联通
 
 包含以下功能:
 
@@ -38,6 +44,8 @@ const appName = createLogger("中国联通"),
   cookieVars = [chinaUnicom + "Cookie"],
   signDisabled = process.env[chinaUnicom + "Sign"] === "false",
   ltzfDisabled = process.env[chinaUnicom + "Ltzf"] === "false",
+  tempActivity300Disabled = process.env[chinaUnicom + "TempAct300"] === "false",
+  tempActivity100Disabled = process.env[chinaUnicom + "TempAct100"] === "false",
   requestTimeout = 50000,
   retryCount = 3;
 const version = 2.08,
@@ -47,7 +55,7 @@ const version = 2.08,
   retryDelay = 5,
   appVersion = "iphone_c@11.0503",
   userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_1_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 unicom{version:" + appVersion + "}",
-  appId = "86b8be06f56ba55e9fa7dff134c6b16c62ca7f319da4a958dd0afa0bf9f36f1daa9922869a8d2313b6f2f9f3b57f2901f0021c4575e4b6949ae18b7f6761d465c12321788dcd980aa1a641789d1188bb",
+  appId = "86b8be04f56ba55e9fa7dff134c6b16c62ca7f319da4a958dd0afa0bf9f36f1daa9922869a8d2313b6f2f9f3b57f2901f0021c4575e4b6949ae18b7f6761d465c12321788dcd980aa1a641789d1188bb",
   deviceCode="866265039370040",
   productId = "10000002",
   secretKey = "7k1HcDL8RKvc",
@@ -485,29 +493,34 @@ class CustomUserService extends UserServiceClass {
   async onLine(options = {}) {
     let loginSuccess = false;
     const filePath = path.join(__dirname, 'chinaUnicom_cache.json');
-  
     try {
-      // 请求服务器
       let requestOptions = {
         fn: "onLine",
         method: "post",
         url: "https://m.client.10010.com/mobileService/onLine.htm",
+        headers: {
+          "User-Agent": this.userAgent,
+          "Accept-Encoding": "gzip",
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
         form: {
+          isFirstInstall: 1,
+          reqtime: Date.now(),
+          netWay: "Wifi",
+          version: "android@11.0702",
+          pushPlatform: "XIAOMI",
           token_online: this.token_online,
-          reqtime: appName.time("yyyy-MM-dd hh:mm:ss"),
-          appId: appId,
-          version: appVersion,
-          step: "bindlist",
-          isFirstInstall: 0,
-          deviceModel: "iPhone",
-          deviceCode: deviceCode
+          provinceChanel: "general",
+          simOperator: "",
+          deviceModel: "",
+          deviceBrand: "Xiaomi",
+          flushkey: 1
         }
       };
-  
       let response = await this.request(requestOptions);
       let { result: responseData, statusCode: responseStatus } = response;
       let responseCode = appName.get(responseData, "code", responseStatus);
-  
+        // console.log(responseData)
       if (responseCode == 0) {
         loginSuccess = true;
         this.valid = true;
@@ -515,7 +528,7 @@ class CustomUserService extends UserServiceClass {
         this.name = responseData?.["desmobile"];
         this.ecs_token = responseData?.["ecs_token"];
         this.city = responseData?.["list"];
-        this.log("登录成功");  
+        this.log("登录成功");
 
       } else {
         this.valid = false;
@@ -531,14 +544,12 @@ class CustomUserService extends UserServiceClass {
 
   async getMarketTicket(options = {}) {
     try {
-      // 获取权益超市的ticket
       const targetUrl = "https://contact.bol.wo.cn/";
       const { ticket, type, loc } = await this.openPlatLineNew(targetUrl);
       
       if (ticket) {
         this.market_ticket = ticket;
         this.market_ticket_type = type;
-        // this.log("获取权益超市ticket成功");
         return { ticket, type };
       } else {
         this.log("获取权益超市ticket失败");
@@ -558,8 +569,6 @@ class CustomUserService extends UserServiceClass {
     
     try {
       
-      
-      // 先获取ticket
       const ticketInfo = await this.getMarketTicket();
       if (!ticketInfo || !ticketInfo.ticket) {
         this.log("权益超市登录失败：无法获取ticket");
@@ -4524,6 +4533,329 @@ async sign_doTask(_0x4cf867, _0x22748d, _0x5bbfdb = {}) {
   async sign_task() {
     await this.sign_getContinuous();
   }
+
+  async tempActivity300_task() {
+    const expireTime = new Date("2025-12-31T23:59:59+08:00").getTime();
+    if (Date.now() > expireTime) {
+      this.log("300积分活动已过期，跳过");
+      return;
+    }
+    await this.tempActivity300_queryAndClaim();
+    await this.tempActivity300_lottery();
+  }
+
+  async tempActivity300_queryAndClaim() {
+    try {
+      const acId = "AC20251210144040";
+      const from = "ZXGS97000018609";
+      const requestOptions = {
+        fn: "tempActivity300_query",
+        method: "post",
+        url: "https://m.client.10010.com/welfare-mall-front/ninePalaceGrid/queryTaskInfo/v2",
+        headers: {
+          "User-Agent": this.userAgent,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Origin": "https://img.client.10010.com",
+          "Referer": "https://img.client.10010.com/"
+        },
+        form: {
+          params: JSON.stringify({ from: from, acId: acId })
+        }
+      };
+
+      let { result, statusCode } = await this.request(requestOptions);
+      let code = appName.get(result, "code", statusCode);
+
+      if (code == "0" && result?.status === "success") {
+        const tasks = result?.resdata?.tasks || [];
+        for (const task of tasks) {
+          if (task.isClaimed === 1 && task.isStock === true) {
+            this.log(`300积分活动: 发现可领取任务 [${task.taskName}]`);
+            await this.tempActivity300_doTask(acId, from, task.taskId);
+          } else if (task.isClaimed === 0) {
+            this.log(`300积分活动: 任务 [${task.taskName}] 已领取过`);
+          } else {
+            this.log(`300积分活动: 任务 [${task.taskName}] 状态: isClaimed=${task.isClaimed}, isStock=${task.isStock}`);
+          }
+        }
+        if (tasks.length === 0) {
+          this.log("300积分活动: 暂无可领取任务");
+        }
+      } else {
+        const msg = result?.msg || "未知错误";
+        this.log(`300积分活动查询失败[${code}]: ${msg}`);
+      }
+    } catch (error) {
+      this.log(`300积分活动查询异常: ${error.message}`);
+    }
+  }
+
+  async tempActivity300_doTask(acId, from, taskId) {
+    try {
+      const requestOptions = {
+        fn: "tempActivity300_doTask",
+        method: "post",
+        url: "https://m.client.10010.com/welfare-mall-front/ninePalaceGrid/doTaskInfo/v1",
+        headers: {
+          "User-Agent": this.userAgent,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Origin": "https://img.client.10010.com",
+          "Referer": "https://img.client.10010.com/"
+        },
+        form: {
+          params: JSON.stringify({ from: from, acId: acId, taskId: taskId })
+        }
+      };
+
+      let { result, statusCode } = await this.request(requestOptions);
+      let code = appName.get(result, "code", statusCode);
+
+      if (code == "0" && result?.status === "success") {
+        this.log("300积分活动: 领取成功!", { notify: true });
+      } else {
+        const msg = result?.msg || "未知错误";
+        this.log(`300积分活动领取失败[${code}]: ${msg}`);
+      }
+    } catch (error) {
+      this.log(`300积分活动领取异常: ${error.message}`);
+    }
+  }
+
+  async tempActivity300_lottery() {
+    try {
+      const acId = "AC20251205165807";
+      const from = "ZXGS97000018573,ZXGS97000017932";
+      const imei = "8e556011924f4780998ca4066767f593";
+      const countOptions = {
+        fn: "tempActivity300_count",
+        method: "post",
+        url: "https://m.client.10010.com/welfare-mall-front/ninePalaceGrid/findLotteryCount/v1",
+        headers: {
+          "User-Agent": this.userAgent,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Origin": "https://img.client.10010.com",
+          "Referer": "https://img.client.10010.com/"
+        },
+        form: {
+          params: JSON.stringify({ from: from, acId: acId })
+        }
+      };
+
+      let { result, statusCode } = await this.request(countOptions);
+      let code = appName.get(result, "code", statusCode);
+
+      if (code == "0" && result?.status === "success") {
+        const drawCount = parseInt(result?.resdata?.drawCount || "0");
+        this.log(`300积分抽奖活动: 可抽奖次数 ${drawCount}`);
+
+        if (drawCount > 0) {
+          for (let i = 0; i < drawCount; i++) {
+            const reqSeq = appName.randomString(32);
+            await this.tempActivity300_draw(acId, from, reqSeq, imei);
+            if (i < drawCount - 1) {
+              await appName.wait(2000);
+            }
+          }
+        }
+      } else {
+        const msg = result?.msg || "未知错误";
+        this.log(`300积分抽奖查询次数失败[${code}]: ${msg}`);
+      }
+    } catch (error) {
+      this.log(`300积分抽奖查询异常: ${error.message}`);
+    }
+  }
+
+  async tempActivity300_draw(acId, from, reqSeq, imei) {
+    try {
+      const drawOptions = {
+        fn: "tempActivity300_draw",
+        method: "post",
+        url: "https://m.client.10010.com/welfare-mall-front/ninePalaceGrid/luckyDraw/v1",
+        headers: {
+          "User-Agent": this.userAgent,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Origin": "https://img.client.10010.com",
+          "Referer": "https://img.client.10010.com/"
+        },
+        form: {
+          params: JSON.stringify({ from: from, acId: acId, reqSeq: reqSeq, imei: imei })
+        }
+      };
+
+      let { result: drawResult, statusCode: drawStatus } = await this.request(drawOptions);
+      let drawCode = appName.get(drawResult, "code", drawStatus);
+
+      if (drawCode == "0" && drawResult?.status === "success") {
+        await appName.wait(500);
+        await this.tempActivity300_winInfo(acId, from, reqSeq, imei);
+      } else {
+        const msg = drawResult?.msg || "未知错误";
+        this.log(`300积分抽奖失败[${drawCode}]: ${msg}`);
+      }
+    } catch (error) {
+      this.log(`300积分抽奖异常: ${error.message}`);
+    }
+  }
+
+  async tempActivity300_winInfo(acId, from, reqSeq, imei) {
+    try {
+      const winOptions = {
+        fn: "tempActivity300_winInfo",
+        method: "post",
+        url: "https://m.client.10010.com/welfare-mall-front/ninePalaceGrid/findWinInfo/v1",
+        headers: {
+          "User-Agent": this.userAgent,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Origin": "https://img.client.10010.com",
+          "Referer": "https://img.client.10010.com/"
+        },
+        form: {
+          params: JSON.stringify({ from: from, acId: acId, reqSeq: reqSeq, imei: imei })
+        }
+      };
+
+      let { result, statusCode } = await this.request(winOptions);
+      let code = appName.get(result, "code", statusCode);
+
+      if (code == "0" && result?.status === "success") {
+        const resdata = result?.resdata;
+        if (resdata?.isWin) {
+          this.log(`300积分抽奖中奖: ${resdata.prizeName}`, { notify: true });
+        } else {
+          this.log(`300积分抽奖: 未中奖`);
+        }
+      } else {
+        const msg = result?.msg || "未知错误";
+        this.log(`300积分抽奖查询中奖信息失败[${code}]: ${msg}`);
+      }
+    } catch (error) {
+      this.log(`300积分抽奖查询中奖信息异常: ${error.message}`);
+    }
+  }
+
+  async tempActivity100_task() {
+    const expireTime = new Date("2025-12-15T23:59:59+08:00").getTime();
+    if (Date.now() > expireTime) {
+      this.log("100积分抽奖活动已过期，跳过");
+      return;
+    }
+    await this.tempActivity100_lottery();
+  }
+
+  async tempActivity100_lottery() {
+    try {
+      const acId = "AC20251202153959";
+      const from = "ZXGS97000018442";
+      const imei = "8e5560119244f780998ca4066767f593";
+      const countOptions = {
+        fn: "tempActivity100_count",
+        method: "post",
+        url: "https://m.client.10010.com/welfare-mall-front/ninePalaceGrid/findLotteryCount/v1",
+        headers: {
+          "User-Agent": this.userAgent,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Origin": "https://img.client.10010.com",
+          "Referer": "https://img.client.10010.com/"
+        },
+        form: {
+          params: JSON.stringify({ from: from, acId: acId })
+        }
+      };
+
+      let { result, statusCode } = await this.request(countOptions);
+      let code = appName.get(result, "code", statusCode);
+
+      if (code == "0" && result?.status === "success") {
+        const drawCount = parseInt(result?.resdata?.drawCount || "0");
+        this.log(`100积分抽奖活动: 可抽奖次数 ${drawCount}`);
+
+        if (drawCount > 0) {
+          for (let i = 0; i < drawCount; i++) {
+            const reqSeq = appName.randomString(32);
+            await this.tempActivity100_draw(acId, from, reqSeq, imei);
+            if (i < drawCount - 1) {
+              await appName.wait(2000);
+            }
+          }
+        }
+      } else {
+        const msg = result?.msg || "未知错误";
+        this.log(`100积分抽奖查询次数失败[${code}]: ${msg}`);
+      }
+    } catch (error) {
+      this.log(`100积分抽奖查询异常: ${error.message}`);
+    }
+  }
+
+  async tempActivity100_draw(acId, from, reqSeq, imei) {
+    try {
+      const drawOptions = {
+        fn: "tempActivity100_draw",
+        method: "post",
+        url: "https://m.client.10010.com/welfare-mall-front/ninePalaceGrid/luckyDraw/v1",
+        headers: {
+          "User-Agent": this.userAgent,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Origin": "https://img.client.10010.com",
+          "Referer": "https://img.client.10010.com/"
+        },
+        form: {
+          params: JSON.stringify({ from: from, acId: acId, reqSeq: reqSeq, imei: imei })
+        }
+      };
+
+      let { result: drawResult, statusCode: drawStatus } = await this.request(drawOptions);
+      let drawCode = appName.get(drawResult, "code", drawStatus);
+
+      if (drawCode == "0" && drawResult?.status === "success") {
+        await appName.wait(500);
+        await this.tempActivity100_winInfo(acId, from, reqSeq, imei);
+      } else {
+        const msg = drawResult?.msg || "未知错误";
+        this.log(`100积分抽奖失败[${drawCode}]: ${msg}`);
+      }
+    } catch (error) {
+      this.log(`100积分抽奖异常: ${error.message}`);
+    }
+  }
+
+  async tempActivity100_winInfo(acId, from, reqSeq, imei) {
+    try {
+      const winOptions = {
+        fn: "tempActivity100_winInfo",
+        method: "post",
+        url: "https://m.client.10010.com/welfare-mall-front/ninePalaceGrid/findWinInfo/v1",
+        headers: {
+          "User-Agent": this.userAgent,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Origin": "https://img.client.10010.com",
+          "Referer": "https://img.client.10010.com/"
+        },
+        form: {
+          params: JSON.stringify({ from: from, acId: acId, reqSeq: reqSeq, imei: imei })
+        }
+      };
+
+      let { result, statusCode } = await this.request(winOptions);
+      let code = appName.get(result, "code", statusCode);
+
+      if (code == "0" && result?.status === "success") {
+        const winData = result?.resdata;
+        if (winData?.isWin) {
+          this.log(`100积分抽奖中奖: ${winData.prizeName}`, { notify: true });
+        } else {
+          this.log("100积分抽奖: 未中奖");
+        }
+      } else {
+        const msg = result?.msg || "未知错误...";
+        this.log(`100积分抽奖查询中奖信息失败[${code}]: ${msg}`);
+      }
+    } catch (error) {
+      this.log(`100积分抽奖查询中奖异常: ${error.message}`);
+    }
+  }
+
   async ltcy_task() {
     let _0xe84731 = "https://web.wostore.cn/web/flowGame/index.html?channelId=GAMELTAPP_90006&pushid=99",
       {
@@ -4719,6 +5051,12 @@ async sign_doTask(_0x4cf867, _0x22748d, _0x5bbfdb = {}) {
     await this.flmf_task();
     // 执行权益超市任务
     await this.marketTask();
+    if (!tempActivity300Disabled) {
+      await this.tempActivity300_task();
+    }
+    if (!tempActivity100Disabled) {
+      await this.tempActivity100_task();
+    }
     // await this.woread_task();
   }
   async userTestTask() {
@@ -4742,6 +5080,8 @@ async sign_doTask(_0x4cf867, _0x22748d, _0x5bbfdb = {}) {
   appName.log("\n------------------------------------");
   appName.log("首页签到设置为: " + (signDisabled ? "不" : "") + "运行");
   appName.log("联通祝福设置为: " + (ltzfDisabled ? "不" : "") + "运行");
+  appName.log("300积分活动设置为: " + (tempActivity300Disabled ? "不" : "") + "运行 (截止2025-12-31)");
+  appName.log("100积分抽奖设置为: " + (tempActivity100Disabled ? "不" : "") + "运行 (截止2025-12-15)");
   appName.log("------------------------------------\n");
 
   // 执行用户登录任务
@@ -4914,7 +5254,8 @@ function createLogger(UserClass) {
         return { ...source };
       }
       read_env(UserClass) {
-        const envValues = cookieVars.map(varName => process.env[varName]);
+        // const envValues = cookieVars.map(varName => process.env[varName]);
+        const envValues = cookieVars.map(varName => process.env[varName] || "");
         for (const envValue of envValues.filter(value => !!value)) {
           const delimitersFound = delimiters.filter(delimiter => envValue.includes(delimiter));
           const delimiter = delimitersFound.length > 0 ? delimitersFound[0] : delimiters[0];
