@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+# const $ = new Env("联通营业厅账密登录");
 """
 联通账号密码登录脚本 - 青龙 2.19.2 版
 通过账号密码登录，生成 UNICOM_ACCOUNTS=手机号#token_online#appid
