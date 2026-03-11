@@ -13,10 +13,9 @@
 #    4. 如遇到问题，请及时停止使用
 #    --------------------------
 #    🔵 📝 使用说明：
-#    1️⃣ 打开小程序或APP-我的-积分，抓包以下URL之一:
-#      - https://mcs-mimp-web.sf-express.com/mcs-mimp/share/weChat/shareGiftReceiveRedirect
-#      - https://mcs-mimp-web.sf-express.com/mcs-mimp/share/app/shareRedirect
-#      编码: 抓取URL后，使用 https://www.toolhelper.cn/EncodeDecode/Url 进行编码
+#    1️⃣ 点击"积分"，获取以下几种url之一：
+#       - 🌐 https://mcs-mimp-web.sf-express.com/mcs-mimp/share/weChat/shareGiftReceiveRedirect
+#       - 🌐 https://mcs-mimp-web.sf-express.com/mcs-mimp/share/app/shareRedirect
 #    2️⃣ 多账号请换行
 #    3️⃣ 变量名：sfsyUrl 注意新版本需要进行编码后的变量
 #    --------------------------
