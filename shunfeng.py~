@@ -22,9 +22,9 @@
 #    --------------------------
 EXCHANGE_COUPON = False # 蜂蜜兑券 True为启用、False为禁用[默认禁用]
 HONEY_LOTTERY = True # 蜂蜜抽奖 True为启用、False为禁用[默认禁用]
-DRAW_CARDS = False # 周年庆卡牌抽奖 True为启用、False为禁用[默认禁用]
-DRAGONBOAT_LOTTERY2 = False # False为直接开启端午活动
-DISNEY_ACTIVITY = False  # 迪士尼主题活动 True为启用、False为禁用[默认启用]
+DRAW_CARDS = True # 周年庆卡牌抽奖 True为启用、False为禁用[默认禁用]
+DRAGONBOAT_LOTTERY2 = True # False为直接开启端午活动
+DISNEY_ACTIVITY = True  # 迪士尼主题活动 True为启用、False为禁用[默认启用]
 YEAREND_2025_ACTIVITY = True
 
 import os
