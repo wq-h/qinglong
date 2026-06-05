@@ -89,10 +89,57 @@ async function getTraffic(account) {
   }
 }
 
+// ============ 发送通知 ============
+async function sendNotification(results) {
+  const { sendNotify } = require("./sendNotify");
+  
+  const title = "📡 iKuuu 签到结果";
+  let msg = "";
+  
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    const index = i + 1;
+    
+    if (r.checkin.success) {
+      const bonusText = r.checkin.bonus ? `\n   ✨ 签到获得: ${r.checkin.bonus}` : "";
+      msg += `👤 账号${index}: ${r.name}\n`;
+      msg += `   ✅ 签到成功${bonusText}\n`;
+      msg += `   💾 剩余流量: ${r.traffic}\n\n`;
+    } else {
+      msg += `👤 账号${index}: ${r.name}\n`;
+      msg += `   ⚠️ ${r.checkin.msg}\n`;
+      msg += `   💾 剩余流量: ${r.traffic}\n\n`;
+    }
+  }
+  
+  // 统计
+  const successCount = results.filter(r => r.checkin.success).length;
+  const totalBonus = results.reduce((sum, r) => {
+    if (r.checkin.bonus) {
+      const match = r.checkin.bonus.match(/(\d+\.?\d*)/);
+      return sum + (match ? parseFloat(match[1]) : 0);
+    }
+    return sum;
+  }, 0);
+  
+  msg += `━━━━━━━━━━━\n`;
+  msg += `📊 汇总: ${successCount}/${results.length} 成功`;
+  if (totalBonus > 0) {
+    msg += ` | 共获得 ${totalBonus.toFixed(0)} MB`;
+  }
+  
+  try {
+    await sendNotify(title, msg);
+    console.log("\n✅ 通知发送成功");
+  } catch (e) {
+    console.log("\n⚠️ 通知发送失败:", e.message);
+  }
+}
+
 // ============ 主函数 ============
 async function main() {
   console.log("======== iKuuu 签到 + 流量查询 ========\n");
-  console.log(`HOST: ${HOST}\n`);
+  console.log(`🌐 HOST: ${HOST}\n`);
   
   let accounts;
   try {
@@ -107,7 +154,7 @@ async function main() {
     return;
   }
   
-  console.log(`检测到 ${accounts.length} 个账号\n`);
+  console.log(`📱 检测到 ${accounts.length} 个账号\n`);
   
   const results = [];
   
@@ -122,20 +169,8 @@ async function main() {
   
   console.log("\n======== 签到完成 ========");
   
-  // ============ 发送通知 ============
-  const { sendNotify } = require("./sendNotify");
-  
-  let msg = `iKuuu 签到 + 流量查询\n\n`;
-  
-  for (const r of results) {
-    const status = r.checkin.success ? "✅" : "❌";
-    const bonus = r.checkin.bonus ? `\n   签到获得: ${r.checkin.bonus}` : "";
-    msg += `${status} ${r.name}\n`;
-    msg += `   签到: ${r.checkin.success ? "成功" : r.checkin.msg}${bonus}\n`;
-    msg += `   剩余: ${r.traffic}\n\n`;
-  }
-  
-  await sendNotify("iKuuu 签到", msg);
+  // 发送通知
+  await sendNotification(results);
 }
 
 main().catch(error => {
