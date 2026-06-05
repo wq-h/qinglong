@@ -1,184 +1,144 @@
 /*
-填写注册的邮箱和密码,多账号使用;隔开
-export Ikuuu_EMAIL="xxx@.com;xxx@com"
-export Ikuuu_PASSWD="A123;A123"
-export Ikuuu_HOST="ikuuu.one"
-由于 ikuuu 经常更换域名，添加 HOST 环境变量，默认为ikuuu.one。若域名更改，修改 HOST 的值为对应域名即可
+  iKuuu 签到 + 流量查询 + 通知
+  青龙面板脚本
+  
+  环境变量:
+  - IKUuu_HOST: iKuuu 域名，默认 ikuuu.win
+  - IKUuu_ACCOUNTS: 账号 JSON 数组
+    示例: [{"name":"账号1","cookie":"xxx"},{"name":"账号2","cookie":"yyy"}]
 
 cron: 33 08 * * *
 const $ = new Env("ikuuu 机场签到");
 */
-const { sendNotify } = require("./sendNotify");
-const fs = require('fs');
-const path = require('path');
 
-// 配置类
-class Config {
-    static get HOST() {
-        return process.env.Ikuuu_HOST || "ikuuu.one";
-    }
+// ============ 环境变量 ============
+const HOST = process.env.IKUuu_HOST || "ikuuu.win";
+const ACCOUNTS_JSON = process.env.IKUuu_ACCOUNTS || "[]";
 
-    static get PROTOCOL_PREFIX() {
-        return "https://";
-    }
+const CHECKIN_URL = `https://${HOST}/user/checkin`;
+const USER_URL = `https://${HOST}/user`;
 
-    static get LOGIN_URL() {
-        return `${Config.PROTOCOL_PREFIX}${Config.HOST}/auth/login`;
+// ============ 工具函数 ============
+function decodeBase64(str) {
+  try {
+    const text = atob(str);
+    const bytes = new Uint8Array(text.length);
+    for (let i = 0; i < text.length; i++) {
+      bytes[i] = text.charCodeAt(i);
     }
-
-    static get CHECKIN_URL() {
-        return `${Config.PROTOCOL_PREFIX}${Config.HOST}/user/checkin`;
-    }
+    return new TextDecoder().decode(bytes);
+  } catch (e) {
+    return decodeURIComponent(atob(str).split("").map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join(""));
+  }
 }
 
-// 日志配置
-const logStream = fs.createWriteStream(path.join(__dirname, 'ikuuu.log'), { flags: 'a' });
-
-function log(level, message) {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] [${level}] ${message}\n`;
-    logStream.write(logMessage);
-    console.log(logMessage);
+// ============ 签到 ============
+async function checkIn(account) {
+  try {
+    const response = await fetch(CHECKIN_URL, {
+      method: "POST",
+      headers: {
+        "Cookie": account.cookie,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+    
+    const data = await response.json();
+    
+    let bonus = null;
+    if (data.msg) {
+      const match = data.msg.match(/(\d+\.?\d*)\s*([KMGT]?B)/i);
+      if (match) bonus = `${match[1]} ${match[2].toUpperCase()}`;
+    }
+    
+    if (data.ret === 1) {
+      console.log(`✅ ${account.name} 签到成功`);
+      if (bonus) console.log(`   +${bonus}`);
+      return { success: true, bonus, msg: data.msg };
+    } else {
+      console.log(`❌ ${account.name}: ${data.msg}`);
+      return { success: false, bonus: null, msg: data.msg };
+    }
+  } catch (error) {
+    console.error(`[ERROR] ${account.name}: ${error.message}`);
+    return { success: false, bonus: null, msg: error.message };
+  }
 }
 
-// Cookie 工具类
-class CookieUtil {
-    static parseCookie(rawCookie) {
-        let cookieSets = rawCookie.split("path=/,");
-        const cookies = {};
-
-        cookieSets.forEach((cookie) => {
-            const match = cookie.match(/^([^=]+)=(.*?);/);
-            if (match) {
-                const fieldName = match[1].trim();
-                let fieldValue = match[2].trim();
-                fieldValue = decodeURIComponent(fieldValue);
-
-                if (!cookies[fieldName]) {
-                    cookies[fieldName] = fieldValue;
-                }
-            }
-        });
-
-        return cookies;
+// ============ 查询剩余流量 ============
+async function getTraffic(account) {
+  try {
+    const data = await fetch(USER_URL, {
+      headers: { Cookie: account.cookie }
+    }).then(r => r.text());
+    
+    const originBodyMatch = data.match(/var originBody = "([^"]+)"/);
+    let rest = "N/A";
+    
+    if (originBodyMatch && originBodyMatch[1]) {
+      const decodeData = decodeBase64(originBodyMatch[1]);
+      const match = decodeData.match(/<h4>剩余流量<\/h4>[\s\S]*?<span class="counter">([\d.]+)<\/span>\s*([A-Za-z]+)/);
+      if (match) rest = `${match[1]} ${match[2]}`;
     }
-
-    static generateCookieStr(cookieObject) {
-        return Object.entries(cookieObject)
-            .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
-            .join("; ");
-    }
+    
+    console.log(`📊 ${account.name} 剩余流量: ${rest}`);
+    return rest;
+  } catch (error) {
+    console.log(`[ERROR] ${account.name} 流量查询: ${error.message}`);
+    return "Error";
+  }
 }
 
-// Ikuuu 客户端类
-class IkuuuClient {
-    constructor(email, password) {
-        this.email = email;
-        this.password = password;
-    }
-
-    async login() {
-        log('INFO', `Logging in with email: ${this.email}...`);
-
-        let formData = new FormData();
-        formData.append("host", Config.HOST);
-        formData.append("email", this.email);
-        formData.append("passwd", this.password);
-        formData.append("code", "");
-        formData.append("remember_me", "off");
-
-        try {
-            let response = await fetch(Config.LOGIN_URL, {
-                method: "POST",
-                body: formData,
-            });
-
-            let rawCookie = response.headers.get("set-cookie");
-            let responseJson = await response.json();
-
-            if (responseJson) {
-                log('INFO', responseJson.msg);
-            }
-
-            return CookieUtil.parseCookie(rawCookie);
-        } catch (error) {
-            log('ERROR', `Login failed for ${this.email}: ${error.message}`);
-            throw error;
-        }
-    }
-
-    async checkIn(cookie) {
-        try {
-            let response = await fetch(Config.CHECKIN_URL, {
-                method: "POST",
-                headers: {
-                    Cookie: CookieUtil.generateCookieStr(cookie),
-                },
-            });
-
-            let responseJson = await response.json();
-            if (responseJson) {
-                log('INFO', responseJson.msg);
-            }
-        } catch (error) {
-            log('ERROR', `Check-in failed for ${this.email}: ${error.message}`);
-            throw error;
-        }
-    }
-}
-
-// 延迟函数，单位为毫秒
-function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
+// ============ 主函数 ============
 async function main() {
-    let emails = process.env.Ikuuu_EMAIL;
-    let passwords = process.env.Ikuuu_PASSWD;
-
-    if (!emails || !passwords) {
-        log('ERROR', "ENV ERROR: Please set both Ikuuu_EMAIL and Ikuuu_PASSWD.");
-        process.exit(1);
-    }
-
-    let emailList = emails.split(";");
-    let passwdList = passwords.split(";");
-
-    if (emailList.length !== passwdList.length) {
-        log('ERROR', "Error: The number of emails does not match the number of passwords.");
-        process.exit(1);
-    }
-
-    let notifications = [];
-
-    for (let i = 0; i < emailList.length; i++) {
-        let email = emailList[i];
-        let passwd = passwdList[i];
-        let client = new IkuuuClient(email, passwd);
-
-        try {
-            let cookie = await client.login();
-            await client.checkIn(cookie);
-            notifications.push(`账号 ${email} 登录成功，签到完成`);
-        } catch (error) {
-            notifications.push(`账号 ${email} 操作失败: ${error.message}`);
-        }
-
-        await delay(2000);  // 延迟 2 秒
-    }
-
-    // 过滤掉 undefined 值
-    const notificationMessage = notifications
-        .filter(msg => msg !== undefined)
-        .join("\n");
-
-    // 调试：打印通知数组
-    console.log("通知数组内容:", notifications);
-
-    sendNotify(`多个账号操作完成：\n${notificationMessage}`);
+  console.log("======== iKuuu 签到 + 流量查询 ========\n");
+  console.log(`HOST: ${HOST}\n`);
+  
+  let accounts;
+  try {
+    accounts = JSON.parse(ACCOUNTS_JSON);
+  } catch (e) {
+    console.log("[ERROR] IKUuu_ACCOUNTS 格式错误，请检查 JSON 格式!");
+    return;
+  }
+  
+  if (!accounts.length) {
+    console.log("[ERROR] 未配置账号! 请设置 IKUuu_ACCOUNTS 环境变量");
+    return;
+  }
+  
+  console.log(`检测到 ${accounts.length} 个账号\n`);
+  
+  const results = [];
+  
+  for (const account of accounts) {
+    console.log(`\n--- ${account.name} ---`);
+    
+    const checkin = await checkIn(account);
+    const traffic = await getTraffic(account);
+    
+    results.push({ name: account.name, checkin, traffic });
+  }
+  
+  console.log("\n======== 签到完成 ========");
+  
+  // ============ 发送通知 ============
+  const { sendNotify } = require("./sendNotify");
+  
+  let msg = `iKuuu 签到 + 流量查询\n\n`;
+  
+  for (const r of results) {
+    const status = r.checkin.success ? "✅" : "❌";
+    const bonus = r.checkin.bonus ? `\n   签到获得: ${r.checkin.bonus}` : "";
+    msg += `${status} ${r.name}\n`;
+    msg += `   签到: ${r.checkin.success ? "成功" : r.checkin.msg}${bonus}\n`;
+    msg += `   剩余: ${r.traffic}\n\n`;
+  }
+  
+  await sendNotify("iKuuu 签到", msg);
 }
 
 main().catch(error => {
-    log('ERROR', `Main function failed: ${error.message}`);
-    process.exit(1);
+  console.error(`[ERROR] ${error.message}`);
+  process.exit(1);
 });
