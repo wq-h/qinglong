@@ -59,7 +59,7 @@ USER_AGENT = "Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTM
 
 def random_wait():
     """随机倒数函数 (0-900秒)"""
-    delay = random.randint(0, 5)
+    delay = random.randint(0, 900)
     print(f"🎲 随机延迟启动: 将在 {delay} 秒后开始执行任务...")
     time.sleep(delay)
     print("⏰ 倒计时结束，任务开始！")
