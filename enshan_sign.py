@@ -6,7 +6,7 @@
 Python3 依赖: requests DrissionPage
 Linux   依赖: ChromiumPage ChromiumOptions
 
-Cookie 通过控制台 network 获取,Uid 通过个人空间 URL 中获取,保存在 enshan_config,json 配置中
+Cookie 登录 www.right.com.cn -> F12 -> Application -> Cookies -> 复制全部 Cookie,Uid 通过个人空间 URL 中获取,保存在 enshan_config,json 配置中
 """
 
 import json
@@ -19,28 +19,26 @@ import shutil
 from DrissionPage import ChromiumPage, ChromiumOptions
 
 # ================= 配置区域 =================
-CONFIG_FILE = "enshan_config.json"
+CONFIG_FILE = "/ql/data/scripts/enshan_config.json"
 # ============================================
 
-# 青龙内置通知函数（与顺丰脚本相同方式）
-def send_notify(title, content):
+# 青龙内置通知函数 (v3.4 修复版)
+def notify(title, content):
     """使用青龙2.x内置通知模块发送通知
     
     青龙2.x的通知机制：脚本最后输出的内容会被青龙捕获
     格式要求：标题用【】包裹，内容在下方
     """
     # 青龙2.x 标准通知格式：标题【】包裹，内容换行
-    # 青龙会自动抓取最后这段内容，通过配置的渠道发送
     print(f"\n{'='*60}")
     print(f"【{title}】")
     print(f"{'='*60}")
     print(content)
     print(f"{'='*60}\n")
     
-    # 尝试导入青龙notify模块（青龙2.x通常在/ql目录下）
+    # 尝试导入青龙notify模块（青龙2.x）
     try:
         import sys
-        # 青龙2.x 可能的路径
         ql_base = os.environ.get('QL_DIR', '/ql')
         notify_paths = [
             f'{ql_base}/data/scripts',
@@ -50,24 +48,18 @@ def send_notify(title, content):
         for p in notify_paths:
             if p not in sys.path:
                 sys.path.insert(0, p)
-            try:
-                from notify import send
-                send(title, content)
-                print("✅ 通知发送成功")
-                return True
-            except (ImportError, Exception):
-                pass
-    except Exception:
-        pass
-    
-    return True
+        from notify import send
+        send(title, content)
+        print("✅ 通知发送成功")
+    except Exception as e:
+        pass  # 已打印格式，青龙会自动捕获
 
 # 统一的 User-Agent
 USER_AGENT = "Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
 
 def random_wait():
     """随机倒数函数 (0-900秒)"""
-    delay = random.randint(0, 900)
+    delay = random.randint(0, 5)
     print(f"🎲 随机延迟启动: 将在 {delay} 秒后开始执行任务...")
     time.sleep(delay)
     print("⏰ 倒计时结束，任务开始！")
@@ -81,6 +73,16 @@ def force_kill_chrome():
         time.sleep(2) 
     except:
         pass
+
+if not os.path.exists("/ql"):
+    CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "enshan_config.json")
+
+def init_config():
+    default = {"cookie": "", "USER_UID": ""}
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(default, f, indent=2, ensure_ascii=False)
+    print(f"已创建配置文件: {CONFIG_FILE}")
+    return default
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
@@ -127,14 +129,14 @@ def run_sign_in():
     # 2. 读取配置
     config = load_config()
     if not config: 
-        send_notify("恩山签到", "❌ 错误: 无法加载 config.json，请检查文件是否存在")
+        notify("恩山签到", "❌ 错误: 无法加载 config.json，请检查文件是否存在")
         return
     
     raw_cookie = config.get('cookie', '')
     user_uid = config.get('USER_UID', '')
     
     if not raw_cookie or not user_uid:
-        send_notify("恩山签到", "❌ 错误: config.json 中缺少 cookie 或 USER_UID，请检查配置")
+        notify("恩山签到", "❌ 错误: config.json 中缺少 cookie 或 USER_UID，请检查配置")
         return
 
     # 3. 初始化浏览器配置 (v3.3 防冲突机制)
@@ -177,7 +179,7 @@ def run_sign_in():
     if browser_path:
         co.set_paths(browser_path=browser_path)
     else:
-        send_notify("恩山签到", "❌ 错误: 未找到 chromium 可执行文件，请检查依赖安装")
+        notify("恩山签到", "❌ 错误: 未找到 chromium 可执行文件，请检查依赖安装")
         return
     
     # 4. 尝试启动浏览器
@@ -192,7 +194,7 @@ def run_sign_in():
             time.sleep(5)
     
     if not page:
-        send_notify("恩山签到", "❌ 浏览器连续启动失败 (v3.3)，请尝试重启青龙容器")
+        notify("恩山签到", "❌ 浏览器连续启动失败 (v3.3)，请尝试重启青龙容器")
         # 清理临时目录
         shutil.rmtree(rand_dir, ignore_errors=True)
         return
@@ -235,7 +237,7 @@ def run_sign_in():
         if not formhash:
             try:
                 if "登录" in page.ele('tag:body').text:
-                    send_notify("恩山签到", "❌ Cookie 已失效，请更新 config.json 中的 cookie")
+                    notify("恩山签到", "❌ Cookie 已失效，请更新 config.json 中的 cookie")
                     return
             except: pass
         
@@ -248,7 +250,7 @@ def run_sign_in():
         except: pass
             
         if not formhash and not is_signed:
-            send_notify("恩山签到", "❌ 无法提取 Formhash，可能是页面结构变化")
+            notify("恩山签到", "❌ 无法提取 Formhash，可能是页面结构变化")
             return
         
         if formhash:
@@ -317,35 +319,39 @@ def run_sign_in():
             enshan_coin = "未知"
             
             try:
-                time.sleep(5)
+                time.sleep(3)
                 all_lis = page.eles('tag:li')
-                for li in all_lis:
-                    clean_text = li.text.replace(" ", "").replace("\n", "").replace("\r", "")
+                for i, li in enumerate(all_lis):
+                    raw = li.text
+                    clean_text = raw.replace(" ", "").replace("\n", "").replace("\r", "")
                     if not clean_text: continue
                     
                     if ("积分" in clean_text and "今日" not in clean_text) or "Points" in clean_text:
                         match_cn = re.search(r'(\d+)积分', clean_text)
                         match_en = re.search(r'(\d+)Points', clean_text)
-                        if match_cn: total_points = match_cn.group(1)
-                        elif match_en: total_points = match_en.group(1)
+                        if match_cn: 
+                            total_points = match_cn.group(1)
+                        elif match_en: 
+                            total_points = match_en.group(1)
 
                     if "贡献" in clean_text or "Contributions" in clean_text:
                         match_cn = re.search(r'(\d+)分贡献', clean_text)
                         match_en = re.search(r'(\d+)pointsContributions', clean_text)
-                        if match_cn: contribution = match_cn.group(1)
-                        elif match_en: contribution = match_en.group(1)
+                        if match_cn: 
+                            contribution = match_cn.group(1)
+                        elif match_en: 
+                            contribution = match_en.group(1)
 
-                    # 恩山币: 在 <em>恩山币: </em>272 币 结构中
-                    match_cn = re.search(r'恩山币[^>]*>\s*(\d+)', clean_text)
-                    if match_cn: 
-                        enshan_coin = match_cn.group(1)
-                    else:
-                        # 备用：直接匹配 "恩山币: 数字"
-                        match_backup = re.search(r'恩山币\s*[：:]\s*(\d+)', clean_text)
-                        if match_backup:
-                            enshan_coin = match_backup.group(1)
-                
-                print(f"📊 抓取结果: 积分={total_points}, 贡献={contribution}, 币={enshan_coin}")
+                    if "恩山币" in clean_text or "EnshanCoin" in clean_text or "coins" in clean_text:
+                        match_cn = re.search(r'(\d+)币恩山币', clean_text)
+                        match_en = re.search(r'(\d+)coinsFavormountaintribute', clean_text)
+                        match_fallback = re.search(r'(\d+)coins', clean_text)
+                        if match_cn: 
+                            enshan_coin = match_cn.group(1)
+                        elif match_en: 
+                            enshan_coin = match_en.group(1)
+                        elif match_fallback:
+                            enshan_coin = match_fallback.group(1)
                 
             except Exception as e:
                 print(f"❌ 数据解析异常: {e}")
@@ -371,19 +377,19 @@ def run_sign_in():
 └─ 恩山币: {enshan_coin} 币
 """
             
-            send_notify("恩山签到", notify_body)
+            notify("恩山签到", notify_body)
             
             # 保存更新的 Cookie
             final_cookies = get_cookies_safe(page)
             save_cookie_to_config(final_cookies)
             
         else:
-            send_notify("恩山签到", f"❌ 签到失败: {sign_msg}")
+            notify("恩山签到", f"❌ 签到失败: {sign_msg}")
 
     except Exception as e:
         import traceback
         traceback.print_exc()
-        send_notify("恩山签到", f"❌ 运行出错: {str(e)}")
+        notify("恩山签到", f"❌ 运行出错: {str(e)}")
         
     finally:
         try:
