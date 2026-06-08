@@ -78,7 +78,7 @@ if not os.path.exists("/ql"):
     CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "enshan_config.json")
 
 def init_config():
-    default = {"cookie": "", "USER_UID": ""}
+    default = {"cookie": "您的初始 Cookie 字符串", "USER_UID": "您的恩山论坛 UID"}
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(default, f, indent=2, ensure_ascii=False)
     print(f"已创建配置文件: {CONFIG_FILE}")
@@ -86,8 +86,8 @@ def init_config():
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
-        print(f"错误: 找不到 {CONFIG_FILE}")
-        return None
+        print(f"⚠️ 配置文件不存在，自动创建默认配置...")
+        return init_config()
     with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
         return json.load(f)
 
